@@ -10,7 +10,7 @@ GOOGLE_URL = "https://www.google.com/search?q="
 YOUTUBE_URL = "https://www.youtube.com/results?search_query="
 STACK_OVERFLOW_SITE = "stackoverflow.com"
 REDDIT_SITE = "reddit.com"
-POSSIBLE_ARGUMENTS = ["q", "s", "t", "d", "y", "r", "h", "v"]
+POSSIBLE_ARGUMENTS = ["q", "s", "t", "d", "y", "r", "h", "v", "g"]
 
 #TODO: add amazon (a) and ebay (e) and craigslist (c) and bing (b)
 #TODO: handle special characters (such as +)
@@ -32,11 +32,9 @@ class Query:
 		self.deleteHistory = False
 		self.viewHistory = False
 	
-	#arguments can only occur at the beginning of the query
+	#get arguments and separate them from query
 	def getArguments(self):
 		words = self.search.split()
-		#print(self.search)
-		#print(words)
 		for word in words:
 			if len(word) == 2 and word[0] == '-':
 				self.args.append(word[1])
@@ -44,10 +42,9 @@ class Query:
 				if self.noArgsSearch != "":
 					self.noArgsSearch += " "
 				self.noArgsSearch += word
-		#print(self.noArgsSearch)
-		#print(self.args)
 		self.noArgsSearch = " " + self.noArgsSearch
 	
+	#either perform specific command, or create url for query
 	def processArguments(self):
 		for arg in self.args:
 			if not arg in POSSIBLE_ARGUMENTS:
@@ -79,6 +76,7 @@ class Query:
 			self.url += YOUTUBE_URL
 			self.formatSearch = self.convertToURL("y")
 		else:
+			#do this by default (g)
 			self.url += GOOGLE_URL
 			self.formatSearch = self.convertToURL("g")
 			
@@ -90,13 +88,12 @@ class Query:
 		
 		self.url += self.formatSearch
 	
+	#convert query into a usable url based on the browser selection
 	def convertToURL(self, arg):
 		if arg == "g" or arg == "y":
 			return self.noArgsSearch.replace(" ", "+")
 
 
-#history = []
-timestamps = []
 fileOut = open(FILE_OUT_NAME, "a+")
 
 while True:
@@ -105,37 +102,39 @@ while True:
 	q.getArguments()
 	q.processArguments()
 	
+	#display history (v)
 	if q.viewHistory:
 		fileOut.close()
 		fileOut = open(FILE_OUT_NAME, "r")
 		for line in fileOut:
 			print(line)
-		#for line in history:
-		#	print(line)
-		
+		fileOut.close()
+		fileOut = open(FILE_OUT_NAME, "a+")
 	
 	if q.quit:
+		#quit program
 		break
 	elif q.skip:
+		#skip to next prompt
 		continue
 	
+	#open new browser/tab with query's url
 	webbrowser.open_new(q.url)
 	
+	#delete history (d)
 	if q.deleteHistory:
 		fileOut.close()
 		os.remove(FILE_OUT_NAME)
 		fileOut = open(FILE_OUT_NAME, "a+")
-		#history = []
 	
+	#add to history (disabled with t or d)
 	if q.addToHistory:
 		timestamp = time.strftime("%d/%m/%Y, %H:%M:%S")
-		timestamps.append(timestamp)
 		
 		outputStr = timestamp + " -"
 		if len(q.args) == 0:
 			outputStr += " "
 		outputStr += q.noArgsSearch
-		#history.append(outputStr)
 		outputStr += "" + "\n"
 		fileOut.write(outputStr)
 		
