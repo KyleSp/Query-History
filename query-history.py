@@ -8,14 +8,18 @@ import os
 FILE_OUT_NAME = "q-history.txt"
 GOOGLE_URL = "https://www.google.com/search?q="
 YOUTUBE_URL = "https://www.youtube.com/results?search_query="
+BING_URL = "https://www.bing.com/search?q="
+AMAZON_URL = "https://www.amazon.com/s/field-keywords="
 STACK_OVERFLOW_SITE = "stackoverflow.com"
 REDDIT_SITE = "reddit.com"
-POSSIBLE_ARGUMENTS = ["q", "s", "t", "d", "y", "r", "h", "v", "g"]
+POSSIBLE_ARGUMENTS = ["q", "s", "t", "d", "y", "r", "h", "v", "g", "b", "a"]
 
-#TODO: add amazon (a) and ebay (e) and craigslist (c) and bing (b)
-#TODO: handle special characters (such as +)
+#TODO: add ebay (e) and craigslist (c)
+#TODO: handle special characters (other ones besides +)
 #TODO: make argument definitions be read in from a file for easy customization (must include one for "quit")
 #TODO: be able to search with multiple search engines at the same time
+#TODO: allow the user to add/modify their own commands while running the program
+#TODO: for help argument, be able to do "-h([arg])" to get description about [arg]
 
 class Query:
 	def __init__(self, search):
@@ -42,7 +46,6 @@ class Query:
 				if self.noArgsSearch != "":
 					self.noArgsSearch += " "
 				self.noArgsSearch += word
-		self.noArgsSearch = " " + self.noArgsSearch
 	
 	#either perform specific command, or create url for query
 	def processArguments(self):
@@ -52,46 +55,65 @@ class Query:
 				self.skip = True
 		
 		#misc. arguments
+		#quit
 		if "q" in self.args:
 			self.quit = True
 			return
 		
+		#don't add to history
 		if "t" in self.args:
 			self.addToHistory = False
 		
+		#delete history
 		if "d" in self.args:
 			self.addToHistory = False
 			self.deleteHistory = True
+			self.skip = True
 		
+		#get help
 		if "h" in self.args:
 			self.skip = True
 			print("list of arguments:", POSSIBLE_ARGUMENTS)
 		
+		#view history
 		if "v" in self.args:
 			self.skip = True
 			self.viewHistory = True
 		
 		#browser selection and format search
 		if "y" in self.args:
+			#select youtube
 			self.url += YOUTUBE_URL
 			self.formatSearch = self.convertToURL("y")
+		elif "b" in self.args:
+			#select bing
+			self.url += BING_URL
+			self.formatSearch = self.convertToURL("b")
+		elif "a" in self.args:
+			#select amazon
+			self.url += AMAZON_URL
+			self.formatSearch = self.convertToURL("a")
 		else:
-			#do this by default (g)
+			#select google (by default (g))
 			self.url += GOOGLE_URL
 			self.formatSearch = self.convertToURL("g")
 			
 			#site selection
 			if "s" in self.args:
+				#select stack overflow for site
 				self.url += "site:" + STACK_OVERFLOW_SITE
 			elif "r" in self.args:
+				#select reddit for site
 				self.url += "site:" + REDDIT_SITE
 		
 		self.url += self.formatSearch
 	
 	#convert query into a usable url based on the browser selection
 	def convertToURL(self, arg):
-		if arg == "g" or arg == "y":
-			return self.noArgsSearch.replace(" ", "+")
+		if arg == "g" or arg == "y" or arg == "b" or arg == "a":
+			s = self.noArgsSearch.replace("+", "%2B")
+			s = s.replace(" ", "+")
+			return s
 
 
 fileOut = open(FILE_OUT_NAME, "a+")
@@ -111,6 +133,12 @@ while True:
 		fileOut.close()
 		fileOut = open(FILE_OUT_NAME, "a+")
 	
+	#delete history (d)
+	if q.deleteHistory:
+		fileOut.close()
+		os.remove(FILE_OUT_NAME)
+		fileOut = open(FILE_OUT_NAME, "a+")
+	
 	if q.quit:
 		#quit program
 		break
@@ -121,19 +149,15 @@ while True:
 	#open new browser/tab with query's url
 	webbrowser.open_new(q.url)
 	
-	#delete history (d)
-	if q.deleteHistory:
-		fileOut.close()
-		os.remove(FILE_OUT_NAME)
-		fileOut = open(FILE_OUT_NAME, "a+")
-	
 	#add to history (disabled with t or d)
 	if q.addToHistory:
 		timestamp = time.strftime("%d/%m/%Y, %H:%M:%S")
 		
-		outputStr = timestamp + " -"
+		outputStr = timestamp + " - "
+		'''
 		if len(q.args) == 0:
 			outputStr += " "
+		'''
 		outputStr += q.noArgsSearch
 		outputStr += "" + "\n"
 		fileOut.write(outputStr)
