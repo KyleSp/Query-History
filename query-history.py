@@ -26,6 +26,9 @@ STACK_OVERFLOW_SITE = "stackoverflow.com"
 REDDIT_SITE = "reddit.com"
 
 #TODO: handle special characters (other ones besides + or ')
+#TODO: do something with the history (keep track of frequency of something)
+#TODO: make error checking tests
+#TODO: deal with conflicting commands (either one has more precidence or it is an error)
 
 def parseArgumentFile(fileName):
 	inFile = open(fileName, "r")
@@ -212,10 +215,7 @@ while True:
 	
 	#load arguments from file (o)
 	if q.loadArgs:
-		print("load args")
 		argDefs = q.getArgDefs()
-		print("site_reddit is:", q.argDefs["[site_reddit]"])
-		print("site_reddit is:", argDefs["[site_reddit]"])
 	
 	#display history (v)
 	if q.viewHistory:
