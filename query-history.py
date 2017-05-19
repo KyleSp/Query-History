@@ -25,13 +25,10 @@ SEARCH_ENGINE_DEFS = {
 STACK_OVERFLOW_SITE = "stackoverflow.com"
 REDDIT_SITE = "reddit.com"
 
-#TODO: add ebay (e)
 #TODO: handle special characters (other ones besides + or ')
-#TODO: allow user to add/modify their own commands while running the program
-#TODO: allow user to save/load custom argument assignments (which are saved in individual files)
 
-def parseArgumentFile():
-	inFile = open(FILE_ARG_NAME, "r")
+def parseArgumentFile(fileName):
+	inFile = open(fileName, "r")
 	argDefs = {}
 	
 	for line in inFile:
@@ -42,6 +39,16 @@ def parseArgumentFile():
 	inFile.close()
 	return argDefs
 
+def saveArgumentFile(argDefs, fileName):
+	if fileName == "query-history.py" or fileName == FILE_OUT_NAME or fileName == FILE_ARG_NAME:
+		return
+	
+	inFile = open(fileName, "w")
+	
+	for arg in argDefs:
+		inFile.write(arg + " = " + argDefs[arg] + "\n")
+	
+	inFile.close()
 
 class Query:
 	def __init__(self, search, argDefs):
@@ -57,6 +64,7 @@ class Query:
 		self.addToHistory = True
 		self.deleteHistory = False
 		self.viewHistory = False
+		self.loadArgs = False
 	
 	#get arguments and separate them from query
 	def getArguments(self):
@@ -71,8 +79,9 @@ class Query:
 	
 	#either perform specific command, or create urls for query
 	def processArguments(self):
+		#check for invalid arguments
 		for arg in self.args:
-			if not arg in argDefs.values():
+			if not arg in self.argDefs.values():
 				print("ERROR:", "\"" + arg + "\"", "not found in arguments list")
 				self.skip = True
 		
@@ -82,13 +91,30 @@ class Query:
 			self.quit = True
 			return
 		
+		#save argument definitions to file
+		if self.argDefs["[save_args]"] in self.args:
+			self.skip = True
+			words = self.noArgsSearch.split()
+			if len(words) == 1:
+				saveArgumentFile(self.argDefs, DIRECTORY + words[0])
+		
+		#load argument definitions from file
+		if self.argDefs["[load_args]"] in self.args:
+			self.skip = True
+			self.loadArgs = True
+			words = self.noArgsSearch.split()
+			if len(words) == 1:
+				self.argDefs = parseArgumentFile(DIRECTORY + words[0])
+				print("site_reddit is:", self.argDefs["[site_reddit]"])
+		
+		#replace argument definition with new value
 		if self.argDefs["[replace_arg]"] in self.args:
 			self.skip = True
 			words = self.noArgsSearch.split()
 			if len(words) == 2:
 				words[0] = "[" + words[0] + "]"
 				print("changed", words[0], "to", words[1])
-				argDefs[words[0]] = words[1]
+				self.argDefs[words[0]] = words[1]
 		
 		#don't add to history
 		if self.argDefs["[no_add_to_history]"] in self.args:
@@ -104,7 +130,7 @@ class Query:
 		if self.argDefs["[help]"] in self.args:
 			self.skip = True
 			print("List of Arguments:")
-			for arg in argDefs:
+			for arg in self.argDefs:
 				print(arg + ": " + self.argDefs[arg])
 		
 		#view history
@@ -159,8 +185,6 @@ class Query:
 	
 	#convert query into a usable url based on the browser selection
 	def convertToURL(self, arg):
-		#print("arg:", arg)
-		#print("arg defs:", self.argDefs["[search_wolfram]"])
 		if (arg == self.argDefs["[search_google]"] or arg == self.argDefs["[search_youtube]"]
 		or arg == self.argDefs["[search_bing]"] or arg == self.argDefs["[search_amazon]"] or arg == self.argDefs["[search_wolfram]"]):
 			s = self.noArgsSearch.replace("+", "%2B")
@@ -173,10 +197,10 @@ class Query:
 			webbrowser.open_new(url)
 	
 	def getArgDefs(self):
-		return argDefs
+		return self.argDefs
 
 
-argDefs = parseArgumentFile()
+argDefs = parseArgumentFile(FILE_ARG_NAME)
 fileOut = open(FILE_OUT_NAME, "a+")
 
 while True:
@@ -185,6 +209,13 @@ while True:
 	
 	q.getArguments()
 	q.processArguments()
+	
+	#load arguments from file (o)
+	if q.loadArgs:
+		print("load args")
+		argDefs = q.getArgDefs()
+		print("site_reddit is:", q.argDefs["[site_reddit]"])
+		print("site_reddit is:", argDefs["[site_reddit]"])
 	
 	#display history (v)
 	if q.viewHistory:
