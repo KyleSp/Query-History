@@ -1,0 +1,17 @@
+[help] = h
+[quit] = q
+[replace_arg] = p
+
+[no_add_to_history] = t
+[view_history] = v
+[delete_history] = d
+
+[default_search] = g
+[search_youtube] = y
+[search_bing] = b
+[search_amazon] = a
+[search_google] = g
+[search_wolfram] = w
+
+[site_stack_overflow] = s
+[site_reddit] = r

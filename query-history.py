@@ -5,29 +5,51 @@ import time
 import os
 
 #constants
-FILE_OUT_NAME = "q-history.txt"
+DIRECTORY = "C:\\Users\\kspurloc\\AppData\Local\\Programs\\Python\\Python36-32\\Python Programs\\"
+FILE_OUT_NAME = DIRECTORY + "q-history.txt"
+FILE_ARG_NAME = DIRECTORY + "q-history-args.txt"
+
 GOOGLE_URL = "https://www.google.com/search?q="
 YOUTUBE_URL = "https://www.youtube.com/results?search_query="
 BING_URL = "https://www.bing.com/search?q="
 AMAZON_URL = "https://www.amazon.com/s/field-keywords="
+WOLFRAM_URL = "https://www.wolframalpha.com/input/?i="
+SEARCH_ENGINE_DEFS = {
+	"[search_youtube]": YOUTUBE_URL,
+	"[search_bing]": BING_URL,
+	"[search_amazon]": AMAZON_URL,
+	"[search_google]": GOOGLE_URL,
+	"[search_wolfram]": WOLFRAM_URL
+	}
+
 STACK_OVERFLOW_SITE = "stackoverflow.com"
 REDDIT_SITE = "reddit.com"
-POSSIBLE_ARGUMENTS = ["q", "s", "t", "d", "y", "r", "h", "v", "g", "b", "a"]
 
-#TODO: add ebay (e) and craigslist (c)
-#TODO: handle special characters (other ones besides +)
-#TODO: make argument definitions be read in from a file for easy customization (must include one for "quit")
-#TODO: be able to search with multiple search engines at the same time
-#TODO: allow the user to add/modify their own commands while running the program
-#TODO: for help argument, be able to do "-h([arg])" to get description about [arg]
+#TODO: add ebay (e)
+#TODO: handle special characters (other ones besides + or ')
+#TODO: allow user to add/modify their own commands while running the program
+#TODO: allow user to save/load custom argument assignments (which are saved in individual files)
+
+def parseArgumentFile():
+	inFile = open(FILE_ARG_NAME, "r")
+	argDefs = {}
+	
+	for line in inFile:
+		words = line.split()
+		if len(words) == 3:
+			argDefs[words[0]] = words[2]
+	
+	inFile.close()
+	return argDefs
+
 
 class Query:
-	def __init__(self, search):
+	def __init__(self, search, argDefs):
 		self.search = search
 		self.noArgsSearch = ""
-		self.formatSearch = ""
-		self.url = ""
+		self.urls = []
 		
+		self.argDefs = argDefs
 		self.args = []
 		
 		self.skip = False
@@ -47,79 +69,119 @@ class Query:
 					self.noArgsSearch += " "
 				self.noArgsSearch += word
 	
-	#either perform specific command, or create url for query
+	#either perform specific command, or create urls for query
 	def processArguments(self):
 		for arg in self.args:
-			if not arg in POSSIBLE_ARGUMENTS:
+			if not arg in argDefs.values():
 				print("ERROR:", "\"" + arg + "\"", "not found in arguments list")
 				self.skip = True
 		
 		#misc. arguments
 		#quit
-		if "q" in self.args:
+		if self.argDefs["[quit]"] in self.args:
 			self.quit = True
 			return
 		
+		if self.argDefs["[replace_arg]"] in self.args:
+			self.skip = True
+			words = self.noArgsSearch.split()
+			if len(words) == 2:
+				words[0] = "[" + words[0] + "]"
+				print("changed", words[0], "to", words[1])
+				argDefs[words[0]] = words[1]
+		
 		#don't add to history
-		if "t" in self.args:
+		if self.argDefs["[no_add_to_history]"] in self.args:
 			self.addToHistory = False
 		
 		#delete history
-		if "d" in self.args:
+		if self.argDefs["[delete_history]"] in self.args:
 			self.addToHistory = False
 			self.deleteHistory = True
 			self.skip = True
 		
 		#get help
-		if "h" in self.args:
+		if self.argDefs["[help]"] in self.args:
 			self.skip = True
-			print("list of arguments:", POSSIBLE_ARGUMENTS)
+			print("List of Arguments:")
+			for arg in argDefs:
+				print(arg + ": " + self.argDefs[arg])
 		
 		#view history
-		if "v" in self.args:
+		if self.argDefs["[view_history]"] in self.args:
 			self.skip = True
 			self.viewHistory = True
 		
-		#browser selection and format search
-		if "y" in self.args:
-			#select youtube
-			self.url += YOUTUBE_URL
-			self.formatSearch = self.convertToURL("y")
-		elif "b" in self.args:
-			#select bing
-			self.url += BING_URL
-			self.formatSearch = self.convertToURL("b")
-		elif "a" in self.args:
-			#select amazon
-			self.url += AMAZON_URL
-			self.formatSearch = self.convertToURL("a")
-		else:
-			#select google (by default (g))
-			self.url += GOOGLE_URL
-			self.formatSearch = self.convertToURL("g")
+		#search engine selection and format search
+		match = False
+		defaultEngine = ""
+		for searchEngine in SEARCH_ENGINE_DEFS:
+			if self.argDefs[searchEngine] == self.argDefs["[default_search]"]:
+				defaultEngine = searchEngine
 			
-			#site selection
-			if "s" in self.args:
-				#select stack overflow for site
-				self.url += "site:" + STACK_OVERFLOW_SITE
-			elif "r" in self.args:
-				#select reddit for site
-				self.url += "site:" + REDDIT_SITE
+			if self.argDefs[searchEngine] in self.args:
+				match = True
+				url = SEARCH_ENGINE_DEFS[searchEngine]
+				
+				if searchEngine == "[search_google]":
+					#site selection
+					if self.argDefs["[site_stack_overflow]"] in self.args:
+						#select stack overflow for site
+						url += "site: " + STACK_OVERFLOW_SITE + "+"
+					elif self.argDefs["[site_reddit]"] in self.args:
+						#select reddit for site
+						url += "site: " + REDDIT_SITE + "+"
+				
+				url += self.convertToURL(self.argDefs[searchEngine])
+				self.urls.append(url)
 		
-		self.url += self.formatSearch
+		#use default search engine if none specified
+		if not match:
+			if defaultEngine == "[search_google]":
+				#site selection
+				url = SEARCH_ENGINE_DEFS[defaultEngine]
+				if self.argDefs["[site_stack_overflow]"] in self.args:
+					#select stack overflow for site
+					url += "site:" + STACK_OVERFLOW_SITE + "+"
+					url += self.convertToURL(self.argDefs[defaultEngine])
+					self.urls.append(url)
+					return
+				if self.argDefs["[site_reddit]"] in self.args:
+					#select reddit for site
+					url = SEARCH_ENGINE_DEFS[defaultEngine]
+					url += "site:" + REDDIT_SITE + "+"
+					url += self.convertToURL(self.argDefs[defaultEngine])
+					self.urls.append(url)
+					return
+				url = SEARCH_ENGINE_DEFS[defaultEngine]
+				url += self.convertToURL(self.argDefs[defaultEngine])
+				self.urls.append(url)
 	
 	#convert query into a usable url based on the browser selection
 	def convertToURL(self, arg):
-		if arg == "g" or arg == "y" or arg == "b" or arg == "a":
+		#print("arg:", arg)
+		#print("arg defs:", self.argDefs["[search_wolfram]"])
+		if (arg == self.argDefs["[search_google]"] or arg == self.argDefs["[search_youtube]"]
+		or arg == self.argDefs["[search_bing]"] or arg == self.argDefs["[search_amazon]"] or arg == self.argDefs["[search_wolfram]"]):
 			s = self.noArgsSearch.replace("+", "%2B")
+			s = s.replace("'", "%27")
 			s = s.replace(" ", "+")
 			return s
+	
+	def openTabs(self):
+		for url in self.urls:
+			webbrowser.open_new(url)
+	
+	def getArgDefs(self):
+		return argDefs
 
 
+argDefs = parseArgumentFile()
 fileOut = open(FILE_OUT_NAME, "a+")
 
 while True:
-	q = Query(input("Query: "))
+	#prompt user for input
+	q = Query(input("Query: "), argDefs)
 	
 	q.getArguments()
 	q.processArguments()
@@ -147,20 +209,18 @@ while True:
 		continue
 	
 	#open new browser/tab with query's url
-	webbrowser.open_new(q.url)
+	q.openTabs()
 	
 	#add to history (disabled with t or d)
 	if q.addToHistory:
-		timestamp = time.strftime("%d/%m/%Y, %H:%M:%S")
+		timestamp = time.strftime("%m/%d/%Y, %H:%M:%S")
 		
 		outputStr = timestamp + " - "
-		'''
-		if len(q.args) == 0:
-			outputStr += " "
-		'''
 		outputStr += q.noArgsSearch
 		outputStr += "" + "\n"
 		fileOut.write(outputStr)
-		
+	
+	#update argDefs
+	argDefs = q.getArgDefs()
 
 fileOut.close()
